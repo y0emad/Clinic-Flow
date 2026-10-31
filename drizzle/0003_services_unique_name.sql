@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "services_name_active_unique" ON "services" USING btree (lower("name")) WHERE "services"."is_active" = true;

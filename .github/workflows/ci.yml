@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Typecheck & tests
+    runs-on: ubuntu-latest
+
+    # Same Postgres as docker-compose.yml. The tests create and migrate
+    # the ClinicFlow_test database on it by themselves (tests/globalSetup.ts).
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ClinicFlow
+          POSTGRES_PASSWORD: ClinicFlow
+          POSTGRES_DB: ClinicFlow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ClinicFlow"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Tests
+        run: npm test
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the image
+        run: docker build -t clinicflow-api .
