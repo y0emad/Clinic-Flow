@@ -1,5 +1,7 @@
 # ClinicFlow
 
+[![CI](https://github.com/y0emad/Clinic-Flow/actions/workflows/ci.yml/badge.svg)](https://github.com/y0emad/Clinic-Flow/actions/workflows/ci.yml)
+
 A REST API for booking appointments at a single-doctor clinic.
 Patients sign up, see the free time slots for a service and book one; the doctor manages services, working hours, days off and the appointment list.
 
@@ -75,7 +77,7 @@ The booking endpoint only accepts a `startAt` that is one of these slots, so wha
 **Requirements:** Node.js 20+, Docker.
 
 ```bash
-git clone <repo-url> clinicflow
+git clone https://github.com/y0emad/Clinic-Flow.git clinicflow
 cd clinicflow
 npm install
 
