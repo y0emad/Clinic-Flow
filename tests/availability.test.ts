@@ -14,7 +14,7 @@ beforeEach(async () => {
 
 describe("GET /availability/:serviceId", () => {
   it("a day with no working hours is closed", async () => {
-    const res = await api().get(`/availability/${service.id}?date=${dayString(1)}`);
+    const res = await api().get(`/api/availability/${service.id}?date=${dayString(1)}`);
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ closed: true, slots: [] });
@@ -46,7 +46,7 @@ describe("GET /availability/:serviceId", () => {
     expect(booked).not.toContain("09:15");
     expect(booked).toContain("09:30");
 
-    await api().patch(`/appointments/${body.appointment.id}/cancel`).set(auth(patient));
+    await api().patch(`/api/appointments/${body.appointment.id}/cancel`).set(auth(patient));
     expect(await getSlots(service.id, dayString(1))).toHaveLength(before.length);
   });
 
@@ -61,14 +61,14 @@ describe("GET /availability/:serviceId", () => {
 
   it("rejects past dates, dates over 60 days ahead and bad formats", async () => {
     for (const date of [dayString(-1), dayString(61), "2026-13-01", "tomorrow"]) {
-      const res = await api().get(`/availability/${service.id}?date=${date}`);
+      const res = await api().get(`/api/availability/${service.id}?date=${date}`);
       expect(res.status, date).toBe(400);
     }
   });
 
   it("returns 404 for an inactive service", async () => {
     const inactive = await createService({ isActive: false });
-    const res = await api().get(`/availability/${inactive.id}?date=${dayString(1)}`);
+    const res = await api().get(`/api/availability/${inactive.id}?date=${dayString(1)}`);
     expect(res.status).toBe(404);
   });
 });

@@ -64,12 +64,12 @@ export const clinicDay = (daysFromToday: number) => DateTime.now().setZone(CLINI
 export const dayString = (daysFromToday: number) => clinicDay(daysFromToday).toISODate()!;
 
 export async function getSlots(serviceId: string, date: string) {
-  const res = await api().get(`/availability/${serviceId}?date=${date}`);
+  const res = await api().get(`/api/availability/${serviceId}?date=${date}`);
   return res.body.slots as { startAt: string; endAt: string; time: string }[];
 }
 
 export function book(patient: Awaited<ReturnType<typeof createUser>>, serviceId: string, startAt: string) {
-  return api().post("/appointments").set(auth(patient)).send({ serviceId, startAt });
+  return api().post("/api/appointments").set(auth(patient)).send({ serviceId, startAt });
 }
 
 // Insert an appointment directly, for times the API wouldn't allow (past, or very soon).

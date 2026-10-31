@@ -1,0 +1,21 @@
+/*
+  Layer order: Tailwind's reset (base) < Ant Design < Tailwind utilities.
+  So the reset doesn't break antd components, and classes like "mt-4" still win over antd.
+  antd's styles go into the "antd" layer via <StyleProvider layer> in main.tsx.
+*/
+@layer theme, base, antd, components, utilities;
+
+@import "tailwindcss";
+
+/* Brand colors → Tailwind classes (bg-navy, text-sky, border-teal, ...). Keep in sync with src/theme.ts */
+@theme {
+  --color-navy: #1C1C41;
+  --color-sky: #38BDF8;
+  --color-teal: #2DD4BF;
+  --color-page: #F8FAFC;
+  --color-danger: #B81A1A;
+}
+
+body {
+  @apply bg-page text-navy antialiased;
+}

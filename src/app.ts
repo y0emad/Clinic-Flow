@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -15,6 +17,7 @@ import appointmentRoutes from "./Routes/appointmentRoutes.js";
 const app = express();
 app.use(helmet());
 // Comma-separated list of allowed frontend origins, e.g. "http://localhost:5173,https://clinicflow.app"
+// (only needed when the frontend runs on another origin; the built frontend is served from here).
 const allowedOrigins = (process.env.FRONTEND_URL ?? "http://localhost:5173").split(",").map((o) => o.trim());
 app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
@@ -26,12 +29,24 @@ app.get("/health", async (_req, res) => {
   res.json({ success: true, status: "ok" });
 });
 
-app.use("/auth", authRoutes);
-app.use("/users", userRoutes);
-app.use("/services", servicesRoutes);
-app.use("/schedule", scheduleRoutes);
-app.use("/availability", availabilityRoutes);
-app.use("/appointments", appointmentRoutes);
+// All API routes live under /api, so they never clash with the frontend's pages.
+const api = express.Router();
+api.use("/auth", authRoutes);
+api.use("/users", userRoutes);
+api.use("/services", servicesRoutes);
+api.use("/schedule", scheduleRoutes);
+api.use("/availability", availabilityRoutes);
+api.use("/appointments", appointmentRoutes);
+api.use(notFound); // unknown /api/... → JSON 404, not the frontend
+app.use("/api", api);
+
+// The built React app (client/dist), when it exists: in Docker / production.
+// Any other GET returns index.html, so the frontend's router handles the URL (/dashboard, /book/...).
+const clientDist = path.resolve(process.env.CLIENT_DIST ?? "client/dist");
+if (existsSync(path.join(clientDist, "index.html"))) {
+  app.use(express.static(clientDist, { index: false, maxAge: "1h" }));
+  app.get("/{*path}", (_req, res) => res.sendFile(path.join(clientDist, "index.html")));
+}
 
 app.use(notFound);
 app.use(errorHandler);

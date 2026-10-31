@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/y0emad/Clinic-Flow/actions/workflows/ci.yml/badge.svg)](https://github.com/y0emad/Clinic-Flow/actions/workflows/ci.yml)
 
-A REST API for booking appointments at a single-doctor clinic.
+A full-stack app for booking appointments at a single-doctor clinic: a REST API (Express + PostgreSQL) and a React frontend, shipped together as one Docker image.
 Patients sign up, see the free time slots for a service and book one; the doctor manages services, working hours, days off and the appointment list.
 
 The focus of the project is **correct scheduling**: no double booking (even under concurrent requests), correct times across daylight-saving changes, and one single place that decides what "available" means.
@@ -16,8 +16,9 @@ The focus of the project is **correct scheduling**: no double booking (even unde
 | Validation | express-validator |
 | Auth | JWT, bcrypt, email OTP verification |
 | Dates & timezones | Luxon |
-| Email | Nodemailer (Ethereal in development) |
+| Email | Brevo HTTP API in production, Nodemailer (SMTP / Ethereal) in development |
 | Security | helmet, cors, express-rate-limit |
+| Frontend | React 19, Vite, TypeScript, Ant Design, Tailwind CSS, React Router, TanStack Query |
 | Testing | Vitest, Supertest |
 | DevOps | Docker (multi-stage build), Docker Compose, GitHub Actions CI |
 
@@ -87,7 +88,11 @@ docker compose up -d db     # starts PostgreSQL on port 5432
 npm run db:migrate          # creates the tables
 npm run db:seed             # creates the doctor account from DOC_* in .env
 
-npm run dev                 # http://localhost:3000
+npm run dev                 # API on http://localhost:3000/api
+
+# in a second terminal: the website
+npm --prefix client install
+npm run dev:client          # http://localhost:5173 (forwards /api to the API)
 ```
 
 ### Run everything with Docker
@@ -95,11 +100,12 @@ npm run dev                 # http://localhost:3000
 No Node.js needed on the machine, only Docker and a filled `.env`:
 
 ```bash
-docker compose up -d --build                    # PostgreSQL + the API on http://localhost:3000
+docker compose up -d --build                    # PostgreSQL + the app on http://localhost:3000
 docker compose exec api node dist/db/seed.js    # create the doctor account (first time only)
 ```
 
-- The `Dockerfile` is multi-stage: the first stage compiles TypeScript, the final image has only the compiled JS and production dependencies, and runs as the non-root `node` user.
+- The `Dockerfile` is multi-stage: one stage builds the React app, one compiles the API, and the final image has only the compiled JS, the built website and production dependencies. It runs as the non-root `node` user.
+- Express serves the API under `/api` and the website on every other path (so `/dashboard` or `/book/...` work on refresh).
 - On start the container applies any pending migrations, then starts the server.
 - The API waits until PostgreSQL is healthy, and has its own healthcheck on `GET /health`.
 
@@ -107,7 +113,9 @@ docker compose exec api node dist/db/seed.js    # create the doctor account (fir
 
 | Script | What it does |
 |---|---|
-| `npm run dev` | Start the server with auto-reload |
+| `npm run dev` | Start the API with auto-reload |
+| `npm run dev:client` | Start the website (Vite) |
+| `npm run build:client` | Build the website into `client/dist` |
 | `npm run db:generate` | Create a migration from changes in `src/db/schema.ts` |
 | `npm run db:migrate` | Apply migrations |
 | `npm run db:seed` | Create the doctor account |
@@ -119,6 +127,8 @@ docker compose exec api node dist/db/seed.js    # create the doctor account (fir
 ## API
 
 A ready Postman collection is in [`postman/ClinicFlow.postman_collection.json`](postman/ClinicFlow.postman_collection.json). It saves tokens and ids automatically between requests.
+
+All paths are under **`/api`**, e.g. `POST /api/auth/login`. `GET /health` (outside `/api`) checks the app and the database.
 
 Auth: `Authorization: Bearer <token>`. 🌐 public · 🧑 patient · 🩺 doctor
 
@@ -174,7 +184,7 @@ Auth: `Authorization: Bearer <token>`. 🌐 public · 🧑 patient · 🩺 docto
 ### Example: get slots, then book
 
 ```http
-GET /availability/2b05425c-57a1-4bed-8e03-1e6b063c8253?date=2026-11-07
+GET /api/availability/2b05425c-57a1-4bed-8e03-1e6b063c8253?date=2026-11-07
 ```
 ```json
 {
@@ -190,7 +200,7 @@ GET /availability/2b05425c-57a1-4bed-8e03-1e6b063c8253?date=2026-11-07
 ```
 
 ```http
-POST /appointments
+POST /api/appointments
 Authorization: Bearer <patient token>
 
 { "serviceId": "2b05425c-57a1-4bed-8e03-1e6b063c8253", "startAt": "2026-11-07T14:00:00.000Z" }
@@ -204,12 +214,12 @@ Every response has `success`. Errors (validation included) always look like `{ "
 npm test
 ```
 
-**29 integration tests** (Vitest + Supertest) that call the real API against a real PostgreSQL database:
+**30 integration tests** (Vitest + Supertest) that call the real API against a real PostgreSQL database:
 
 - **No double booking:** two patients book the same slot at the same moment (`Promise.all`), exactly one gets `201`, the other `409`.
 - **Availability:** 15-minute grid in clinic time, booked slots and time off removed, cancelled slots come back, closed days, date limits.
 - **Booking rules:** only free slots, one per day, max 3 upcoming, cancel notice, status changes only after the start, patients can't touch other patients' appointments.
-- **Auth:** signup → OTP → verify → login → `/auth/me`, forgot / reset password (same answer for unknown emails, OTP locked after 5 wrong tries).
+- **Auth:** signup → OTP → verify → login → `/auth/me`, forgot / reset password (same answer for unknown emails, OTP locked after 5 wrong tries), no half-created account when the OTP email fails.
 
 How it works:
 - Tests use a separate database, `ClinicFlow_test`. It is **created and migrated automatically** before the run (`tests/globalSetup.ts`), and every test starts from empty tables.
@@ -217,7 +227,7 @@ How it works:
 - Emails are mocked: nothing is sent, and the tests read the OTP from the mock.
 - Rate limits are skipped when `NODE_ENV=test`.
 - `src/app.ts` builds the Express app and `src/server.ts` only starts it, so Supertest can use the app without opening a port.
-- **CI:** GitHub Actions (`.github/workflows/ci.yml`) runs the typecheck and all tests against a Postgres service on every push and pull request, then checks that the Docker image builds.
+- **CI:** GitHub Actions (`.github/workflows/ci.yml`) runs the typecheck and all tests against a Postgres service, lints and builds the frontend, then checks that the Docker image builds. On every push and pull request.
 
 ## Project structure
 
@@ -237,6 +247,7 @@ tests/                   # Vitest + Supertest integration tests
 drizzle/                 # SQL migrations (incl. the custom exclusion constraint)
 .github/workflows/      # CI: typecheck, tests, Docker build
 postman/                 # Postman collection
+client/                  # React frontend (see client/README.md)
 ```
 
 ## Roadmap
@@ -245,4 +256,4 @@ postman/                 # Postman collection
 
 - [ ] Email reminder the day before the appointment
 - [ ] Invalidate old tokens after a password reset
-- [ ] React frontend
+- [x] React frontend

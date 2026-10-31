@@ -56,23 +56,25 @@ export async function CreateUser(req: Request, res: Response) {
   const otp = await hashNumber(otpPlain);
   const timeOtp = new Date(Date.now() + OTP_TTL_MS);
 
-  const [user] = await db
-    .insert(users)
-    .values({
-      name,
-      email,
-      phone,
-      password: hashedPassword,
-      verified: false,
-      otp,
-      timeOtp,
-    })
-    .returning(publicUserFields);
-  if (!user) {
-    throw new AppError(400, "error to create the user");
-  }
+  // Insert and send the OTP in one transaction: if the email can't be sent the account is
+  // rolled back, so the user can simply sign up again instead of being stuck unverified.
+  const user = await db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(users)
+      .values({
+        name,
+        email,
+        phone,
+        password: hashedPassword,
+        verified: false,
+        otp,
+        timeOtp,
+      })
+      .returning(publicUserFields);
+    await sendOTPEmail(created.email, otpPlain);
+    return created;
+  });
 
-  await sendOTPEmail(user.email, otpPlain);
   return res.status(201).json({
     success: true,
     msg: "Account created, check your email for the OTP",

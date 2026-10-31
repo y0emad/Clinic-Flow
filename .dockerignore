@@ -1,12 +1,13 @@
-node_modules
-dist
+**/node_modules
+**/dist
 .env
 .env.*
 !.env.example
+client/.env*
 tests
 postman
 coverage
 .git
-*.log
+**/*.log
 Dockerfile
 docker-compose.yml
