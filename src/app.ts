@@ -15,6 +15,10 @@ import appointmentRoutes from "./Routes/appointmentRoutes.js";
 
 // The Express app only (no listen), so tests can use it with Supertest.
 const app = express();
+// Behind a reverse proxy (Caddy) every request comes from the proxy, so trust the one proxy's
+// X-Forwarded-For: rate limits then count real visitors. Off by default, since without a proxy
+// a client could fake that header to dodge the limits.
+if (process.env.TRUST_PROXY === "true") app.set("trust proxy", 1);
 // helmet's CSP tells the browser to load every file over https ("upgrade-insecure-requests").
 // That leaves a blank page on plain http, so it's only on when the site is served over HTTPS.
 const httpsOnly = process.env.HTTPS_ONLY === "true";

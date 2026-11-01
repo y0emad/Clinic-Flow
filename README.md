@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/y0emad/Clinic-Flow/actions/workflows/ci.yml/badge.svg)](https://github.com/y0emad/Clinic-Flow/actions/workflows/ci.yml)
 
+**Live demo: [clinicflow-eg.duckdns.org](https://clinicflow-eg.duckdns.org)**
+
 A full-stack app for booking appointments at a single-doctor clinic: a REST API (Express + PostgreSQL) and a React frontend, shipped together as one Docker image.
 Patients sign up, see the free time slots for a service and book one; the doctor manages services, working hours, days off and the appointment list.
 
@@ -20,7 +22,7 @@ The focus of the project is **correct scheduling**: no double booking (even unde
 | Security | helmet, cors, express-rate-limit |
 | Frontend | React 19, Vite, TypeScript, Ant Design, Tailwind CSS, React Router, TanStack Query |
 | Testing | Vitest, Supertest |
-| DevOps | Docker (multi-stage build), Docker Compose, GitHub Actions CI |
+| DevOps | Docker (multi-stage build), Docker Compose, GitHub Actions CI, AWS EC2, Caddy (HTTPS) |
 
 ## Features
 
@@ -123,6 +125,29 @@ docker compose exec api node dist/db/seed.js    # create the doctor account (fir
 | `npm test` | Run the test suite (`npm run test:watch` to re-run on save) |
 | `npm run build` | Compile TypeScript to `dist/` |
 | `npm start` | Run the compiled server (`npm run start:migrate` applies migrations without drizzle-kit) |
+
+## Deployment
+
+The live demo runs on one small AWS EC2 instance:
+
+```
+Browser ──HTTPS──▶ Caddy (:443, Let's Encrypt) ──▶ clinicflow container (:3000) ──▶ Neon PostgreSQL
+                                                          └──▶ Brevo API (emails)
+```
+
+- **Image:** built from the `Dockerfile` and pushed to Docker Hub (`yousefemad/clinicflow`); the server only pulls and runs it.
+- **HTTPS:** Caddy gets and renews the Let's Encrypt certificate by itself and redirects http to https. The app container has no public port; only Caddy reaches it, on a private Docker network.
+- **Database:** Neon (managed PostgreSQL). Migrations run automatically when the container starts.
+- **Emails:** Brevo's HTTP API, since many hosts block SMTP ports.
+- **Config:** secrets live only in an env file on the server, never in the image or the repo. Behind Caddy the app runs with `HTTPS_ONLY=true` and `TRUST_PROXY=true` (see `.env.example`).
+
+Update the server after a new image is pushed:
+
+```bash
+docker pull yousefemad/clinicflow:latest
+docker rm -f clinicflow
+docker run -d --name clinicflow --restart unless-stopped --network clinicflow --env-file ~/clinicflow.env yousefemad/clinicflow:latest
+```
 
 ## API
 
@@ -252,8 +277,7 @@ client/                  # React frontend (see client/README.md)
 
 ## Roadmap
 
-- [ ] Deployment (Render / Railway + Neon)
-
+- [x] Deployment (AWS EC2 + Docker Hub + Caddy + Neon)
 - [ ] Email reminder the day before the appointment
 - [ ] Invalidate old tokens after a password reset
 - [x] React frontend
