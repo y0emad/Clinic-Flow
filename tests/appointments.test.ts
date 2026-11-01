@@ -41,7 +41,7 @@ describe("POST /appointments", () => {
 
   it("only lets patients book", async () => {
     const [slot] = await getSlots(service.id, dayString(1));
-    const res = await api().post("/appointments").set(auth(doctor)).send({ serviceId: service.id, startAt: slot.startAt });
+    const res = await api().post("/api/appointments").set(auth(doctor)).send({ serviceId: service.id, startAt: slot.startAt });
     expect(res.status).toBe(403);
   });
 
@@ -89,7 +89,7 @@ describe("GET /appointments", () => {
     const [slot] = await getSlots(service.id, dayString(1));
     await book(other, service.id, slot.startAt);
 
-    const res = await api().get("/appointments/me?page=2&limit=2").set(auth(patient));
+    const res = await api().get("/api/appointments/me?page=2&limit=2").set(auth(patient));
 
     expect(res.status).toBe(200);
     expect(res.body.appointments).toHaveLength(1);
@@ -102,7 +102,7 @@ describe("GET /appointments", () => {
     await book(patient, service.id, first.startAt);
     await book(other, service.id, second.startAt);
 
-    const res = await api().get("/appointments").set(auth(doctor));
+    const res = await api().get("/api/appointments").set(auth(doctor));
 
     expect(res.status).toBe(200);
     expect(res.body.pagination.totalItems).toBe(2);
@@ -115,7 +115,7 @@ describe("PATCH /appointments/:id/cancel", () => {
     const [slot] = await getSlots(service.id, dayString(1));
     const { body } = await book(patient, service.id, slot.startAt);
 
-    const res = await api().patch(`/appointments/${body.appointment.id}/cancel`).set(auth(patient));
+    const res = await api().patch(`/api/appointments/${body.appointment.id}/cancel`).set(auth(patient));
 
     expect(res.status).toBe(200);
     expect(res.body.appointment.status).toBe("CANCELLED");
@@ -127,7 +127,7 @@ describe("PATCH /appointments/:id/cancel", () => {
     const [slot] = await getSlots(service.id, dayString(1));
     const { body } = await book(other, service.id, slot.startAt);
 
-    const res = await api().patch(`/appointments/${body.appointment.id}/cancel`).set(auth(patient));
+    const res = await api().patch(`/api/appointments/${body.appointment.id}/cancel`).set(auth(patient));
     expect(res.status).toBe(404);
   });
 
@@ -135,10 +135,10 @@ describe("PATCH /appointments/:id/cancel", () => {
     const inOneHour = new Date(Date.now() + 60 * 60_000);
     const appointment = await insertAppointment(patient.id, service.id, inOneHour);
 
-    const byPatient = await api().patch(`/appointments/${appointment.id}/cancel`).set(auth(patient));
+    const byPatient = await api().patch(`/api/appointments/${appointment.id}/cancel`).set(auth(patient));
     expect(byPatient.status).toBe(409);
 
-    const byDoctor = await api().patch(`/appointments/${appointment.id}/cancel`).set(auth(doctor));
+    const byDoctor = await api().patch(`/api/appointments/${appointment.id}/cancel`).set(auth(doctor));
     expect(byDoctor.status).toBe(200);
   });
 });
@@ -148,13 +148,13 @@ describe("PATCH /appointments/:id/status", () => {
     const [slot] = await getSlots(service.id, dayString(1));
     const { body } = await book(patient, service.id, slot.startAt);
 
-    const res = await api().patch(`/appointments/${body.appointment.id}/status`).set(auth(doctor)).send({ status: "COMPLETED" });
+    const res = await api().patch(`/api/appointments/${body.appointment.id}/status`).set(auth(doctor)).send({ status: "COMPLETED" });
     expect(res.status).toBe(409);
   });
 
   it("marks a past appointment as COMPLETED, only once", async () => {
     const appointment = await insertAppointment(patient.id, service.id, new Date(Date.now() - 60 * 60_000));
-    const url = `/appointments/${appointment.id}/status`;
+    const url = `/api/appointments/${appointment.id}/status`;
 
     const first = await api().patch(url).set(auth(doctor)).send({ status: "COMPLETED" });
     expect(first.status).toBe(200);
@@ -172,14 +172,14 @@ describe("GET /appointments/stats", () => {
     await insertAppointment(patient.id, service.id, monthStart.plus({ minutes: 1 }).toJSDate(), "COMPLETED");
     await insertAppointment(patient.id, service.id, monthStart.plus({ minutes: 2 }).toJSDate(), "NO_SHOW");
 
-    const res = await api().get("/appointments/stats").set(auth(doctor));
+    const res = await api().get("/api/appointments/stats").set(auth(doctor));
 
     expect(res.status).toBe(200);
     expect(res.body.stats.thisMonth).toMatchObject({ completed: 1, noShow: 1, revenue: 200, noShowRate: 50 });
   });
 
   it("is for the doctor only", async () => {
-    const res = await api().get("/appointments/stats").set(auth(patient));
+    const res = await api().get("/api/appointments/stats").set(auth(patient));
     expect(res.status).toBe(403);
   });
 });
