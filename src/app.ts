@@ -15,7 +15,10 @@ import appointmentRoutes from "./Routes/appointmentRoutes.js";
 
 // The Express app only (no listen), so tests can use it with Supertest.
 const app = express();
-app.use(helmet());
+// helmet's CSP tells the browser to load every file over https ("upgrade-insecure-requests").
+// That leaves a blank page on plain http, so it's only on when the site is served over HTTPS.
+const httpsOnly = process.env.HTTPS_ONLY === "true";
+app.use(helmet({ contentSecurityPolicy: { directives: { upgradeInsecureRequests: httpsOnly ? [] : null } } }));
 // Comma-separated list of allowed frontend origins, e.g. "http://localhost:5173,https://clinicflow.app"
 // (only needed when the frontend runs on another origin; the built frontend is served from here).
 const allowedOrigins = (process.env.FRONTEND_URL ?? "http://localhost:5173").split(",").map((o) => o.trim());
