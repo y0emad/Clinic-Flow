@@ -1,7 +1,9 @@
 import { Tag } from 'antd'
-import { STATUS } from '../lib/status'
+import { useTranslation } from 'react-i18next'
+import { STATUS_COLOR } from '../lib/status'
 import type { AppointmentStatus } from '../types'
 
 export function StatusTag({ status }: { status: AppointmentStatus }) {
-  return <Tag color={STATUS[status].color}>{STATUS[status].label}</Tag>
+  const { t } = useTranslation()
+  return <Tag color={STATUS_COLOR[status]}>{t(`status.${status}`)}</Tag>
 }

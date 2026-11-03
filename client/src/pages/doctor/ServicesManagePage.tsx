@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Alert, App, Button, Form, Input, InputNumber, Modal, Popconfirm, Table } from 'antd'
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { api, getErrorMessage } from '../../lib/api'
 import { PageTitle } from '../../components/PageTitle'
 import type { Service } from '../../types'
@@ -9,6 +10,7 @@ import type { Service } from '../../types'
 type ServiceForm = { name: string; description?: string; durationMinutes: number; price: number }
 
 export function ServicesManagePage() {
+  const { t } = useTranslation()
   const { message } = App.useApp()
   const queryClient = useQueryClient()
   const [form] = Form.useForm<ServiceForm>()
@@ -26,7 +28,7 @@ export function ServicesManagePage() {
     mutationFn: (values: ServiceForm) =>
       editing === 'new' ? api.post('/services', values) : api.patch(`/services/${(editing as Service).id}`, values),
     onSuccess: () => {
-      message.success(editing === 'new' ? 'Service added' : 'Service updated')
+      message.success(editing === 'new' ? t('manageServices.added') : t('manageServices.updated'))
       setEditing(null)
       refresh()
     },
@@ -36,7 +38,7 @@ export function ServicesManagePage() {
   const remove = useMutation({
     mutationFn: (id: string) => api.delete(`/services/${id}`),
     onSuccess: () => {
-      message.success('Service removed')
+      message.success(t('manageServices.removed'))
       refresh()
     },
     onError: (e) => message.error(getErrorMessage(e)),
@@ -54,10 +56,10 @@ export function ServicesManagePage() {
   return (
     <>
       <PageTitle
-        title="Services"
+        title={t('manageServices.title')}
         extra={
           <Button type="primary" icon={<PlusOutlined />} onClick={() => open('new')}>
-            Add service
+            {t('manageServices.add')}
           </Button>
         }
       />
@@ -72,34 +74,33 @@ export function ServicesManagePage() {
         scroll={{ x: 640 }}
         columns={[
           {
-            title: 'Service',
+            title: t('table.service'),
             key: 'name',
             render: (_, s) => (
               <div>
                 <div className="font-medium">{s.name}</div>
-                <div className="text-xs text-navy/50">{s.description}</div>
+                <div className="text-xs text-ink/50">{s.description}</div>
               </div>
             ),
           },
-          { title: 'Duration', dataIndex: 'durationMinutes', render: (m: number) => `${m} min` },
-          { title: 'Price', dataIndex: 'price', render: (p: number) => `${p} EGP` },
+          { title: t('manageServices.duration'), dataIndex: 'durationMinutes', render: (m: number) => t('common.minutes', { count: m }) },
+          { title: t('table.price'), dataIndex: 'price', render: (p: number) => t('common.price', { price: p }) },
           {
             title: '',
             key: 'actions',
-            align: 'right',
             render: (_, s) => (
               <div className="flex justify-end gap-2">
                 <Button size="small" icon={<EditOutlined />} onClick={() => open(s)}>
-                  Edit
+                  {t('common.edit')}
                 </Button>
                 <Popconfirm
-                  title="Remove this service?"
-                  description="Patients can't book it anymore. Old appointments stay."
-                  okText="Remove"
+                  title={t('manageServices.removeConfirm')}
+                  description={t('manageServices.removeDescription')}
+                  okText={t('common.remove')}
                   okButtonProps={{ danger: true }}
                   onConfirm={() => remove.mutateAsync(s.id).catch(() => undefined)}
                 >
-                  <Button size="small" danger icon={<DeleteOutlined />} />
+                  <Button size="small" danger icon={<DeleteOutlined />} aria-label={t('common.remove')} />
                 </Popconfirm>
               </div>
             ),
@@ -108,26 +109,34 @@ export function ServicesManagePage() {
       />
 
       <Modal
-        title={editing === 'new' ? 'Add service' : 'Edit service'}
+        title={editing === 'new' ? t('manageServices.add') : t('manageServices.editTitle')}
         open={editing !== null}
         onCancel={() => setEditing(null)}
         onOk={() => form.submit()}
-        okText="Save"
+        okText={t('common.save')}
         confirmLoading={save.isPending}
         forceRender
       >
         <Form<ServiceForm> form={form} layout="vertical" requiredMark={false} onFinish={(v) => save.mutate(v)} className="pt-2">
-          <Form.Item name="name" label="Name" rules={[{ required: true, min: 2, max: 100, whitespace: true, message: '2–100 characters' }]}>
+          <Form.Item
+            name="name"
+            label={t('manageServices.name')}
+            rules={[{ required: true, min: 2, max: 100, whitespace: true, message: t('manageServices.nameRule') }]}
+          >
             <Input />
           </Form.Item>
-          <Form.Item name="description" label="Description" rules={[{ max: 500 }]}>
+          <Form.Item name="description" label={t('manageServices.description')} rules={[{ max: 500 }]}>
             <Input.TextArea autoSize={{ minRows: 2, maxRows: 4 }} maxLength={500} showCount />
           </Form.Item>
           <div className="grid grid-cols-2 gap-4">
-            <Form.Item name="durationMinutes" label="Duration (min)" rules={[{ required: true, message: '5–240 minutes' }]}>
+            <Form.Item
+              name="durationMinutes"
+              label={t('manageServices.durationLabel')}
+              rules={[{ required: true, message: t('manageServices.durationRule') }]}
+            >
               <InputNumber min={5} max={240} step={5} precision={0} className="!w-full" />
             </Form.Item>
-            <Form.Item name="price" label="Price (EGP)" rules={[{ required: true, message: 'Enter a price' }]}>
+            <Form.Item name="price" label={t('manageServices.priceLabel')} rules={[{ required: true, message: t('manageServices.priceRule') }]}>
               <InputNumber min={0} precision={0} className="!w-full" />
             </Form.Item>
           </div>

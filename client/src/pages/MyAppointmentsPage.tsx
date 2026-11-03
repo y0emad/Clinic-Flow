@@ -2,17 +2,19 @@ import { useState } from 'react'
 import { Alert, Button, Popconfirm, Segmented, Table, Tooltip } from 'antd'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
+import { useTranslation } from 'react-i18next'
 import { api, getErrorMessage } from '../lib/api'
 import { PAGE_SIZE, useCancelAppointment } from '../lib/appointments'
 import { CANCEL_NOTICE_HOURS, canPatientCancel, formatDate, formatTime } from '../lib/dates'
 import { StatusTag } from '../components/StatusTag'
-import { STATUS_OPTIONS } from '../lib/status'
+import { STATUSES } from '../lib/status'
 import { PageTitle } from '../components/PageTitle'
 import type { Appointment, AppointmentStatus, Pagination } from '../types'
 
 type Filter = AppointmentStatus | 'ALL'
 
 export function MyAppointmentsPage() {
+  const { t } = useTranslation()
   const [status, setStatus] = useState<Filter>('ALL')
   const [page, setPage] = useState(1)
   const cancel = useCancelAppointment()
@@ -31,10 +33,10 @@ export function MyAppointmentsPage() {
   return (
     <>
       <PageTitle
-        title="My appointments"
+        title={t('myAppointments.title')}
         extra={
           <Link to="/">
-            <Button type="primary">Book a new one</Button>
+            <Button type="primary">{t('myAppointments.bookNew')}</Button>
           </Link>
         }
       />
@@ -46,7 +48,10 @@ export function MyAppointmentsPage() {
           setStatus(value)
           setPage(1)
         }}
-        options={[{ value: 'ALL', label: 'All' }, ...STATUS_OPTIONS]}
+        options={[
+          { value: 'ALL', label: t('myAppointments.all') },
+          ...STATUSES.map((s) => ({ value: s, label: t(`status.${s}`) })),
+        ]}
       />
 
       {error && <Alert type="error" showIcon title={getErrorMessage(error)} className="mb-4" />}
@@ -56,7 +61,7 @@ export function MyAppointmentsPage() {
         loading={isFetching}
         dataSource={data?.appointments}
         scroll={{ x: 640 }}
-        locale={{ emptyText: 'No appointments here yet' }}
+        locale={{ emptyText: t('myAppointments.empty') }}
         pagination={{
           current: page,
           pageSize: PAGE_SIZE,
@@ -66,38 +71,41 @@ export function MyAppointmentsPage() {
           hideOnSinglePage: true,
         }}
         columns={[
-          { title: 'Date', key: 'date', render: (_, a) => formatDate(a.startAt) },
-          { title: 'Time', key: 'time', render: (_, a) => formatTime(a.startAt) },
-          { title: 'Service', key: 'service', render: (_, a) => a.service.name },
-          { title: 'Price', dataIndex: 'price', render: (price: number) => `${price} EGP` },
-          { title: 'Status', dataIndex: 'status', render: (s: AppointmentStatus) => <StatusTag status={s} /> },
+          { title: t('table.date'), key: 'date', render: (_, a) => formatDate(a.startAt) },
+          { title: t('table.time'), key: 'time', render: (_, a) => formatTime(a.startAt) },
+          { title: t('table.service'), key: 'service', render: (_, a) => a.service.name },
+          { title: t('table.price'), dataIndex: 'price', render: (price: number) => t('common.price', { price }) },
+          { title: t('table.status'), dataIndex: 'status', render: (s: AppointmentStatus) => <StatusTag status={s} /> },
           {
             title: '',
             key: 'actions',
-            align: 'right',
             render: (_, a) => {
               if (a.status !== 'BOOKED') return null
               if (!canPatientCancel(a.startAt)) {
                 return (
-                  <Tooltip title={`You can only cancel at least ${CANCEL_NOTICE_HOURS} hours before`}>
-                    <Button size="small" disabled>
-                      Cancel
-                    </Button>
-                  </Tooltip>
+                  <div className="flex justify-end">
+                    <Tooltip title={t('myAppointments.cancelTooLate', { hours: CANCEL_NOTICE_HOURS })}>
+                      <Button size="small" className="!h-7 !px-3" disabled>
+                        {t('common.cancel')}
+                      </Button>
+                    </Tooltip>
+                  </div>
                 )
               }
               return (
-                <Popconfirm
-                  title="Cancel this appointment?"
-                  okText="Yes, cancel"
-                  cancelText="Keep it"
-                  okButtonProps={{ danger: true }}
-                  onConfirm={() => cancel.mutateAsync(a.id).catch(() => undefined)}
-                >
-                  <Button size="small" danger>
-                    Cancel
-                  </Button>
-                </Popconfirm>
+                <div className="flex justify-end">
+                  <Popconfirm
+                    title={t('myAppointments.cancelConfirm')}
+                    okText={t('common.yesCancel')}
+                    cancelText={t('common.keepIt')}
+                    okButtonProps={{ danger: true }}
+                    onConfirm={() => cancel.mutateAsync(a.id).catch(() => undefined)}
+                  >
+                    <Button size="small" className="!h-7 !px-3" danger>
+                      {t('common.cancel')}
+                    </Button>
+                  </Popconfirm>
+                </div>
               )
             },
           },

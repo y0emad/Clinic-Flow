@@ -7,15 +7,41 @@
 
 @import "tailwindcss";
 
+/* dark: classes follow the "dark" class on <html> (set by PrefsProvider), not only the OS setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Brand colors → Tailwind classes (bg-navy, text-sky, border-teal, ...). Keep in sync with src/theme.ts */
 @theme {
   --color-navy: #1C1C41;
   --color-sky: #38BDF8;
   --color-teal: #2DD4BF;
-  --color-page: #F8FAFC;
   --color-danger: #B81A1A;
 }
 
+/* Colors that change with light / dark: page background and main text (text-ink, bg-page). */
+:root {
+  --page: #F8FAFC;
+  --ink: #1C1C41;
+}
+.dark {
+  --page: #0B0B1F;
+  --ink: #E2E8F0;
+  color-scheme: dark;
+}
+@theme inline {
+  --color-page: var(--page);
+  --color-ink: var(--ink);
+}
+
 body {
-  @apply bg-page text-navy antialiased;
+  @apply bg-page text-ink antialiased;
+}
+
+html[lang="ar"] body {
+  font-family: "Cairo", "Segoe UI", Tahoma, Arial, sans-serif;
+}
+
+/* Arabic day names are wider than "Mo/Tu"; a smaller header font keeps them apart in the 36px picker columns. */
+html[lang="ar"] .ant-picker-content th {
+  font-size: 11px;
 }

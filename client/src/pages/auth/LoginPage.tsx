@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { App, Button, Form, Input } from 'antd'
 import axios from 'axios'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../auth/useAuth'
 import { getErrorMessage } from '../../lib/api'
 import { AuthCard } from '../../components/AuthCard'
@@ -11,6 +12,7 @@ type LocationState = { from?: string; email?: string } | null
 
 export function LoginPage() {
   const { user, login } = useAuth()
+  const { t } = useTranslation()
   const { message } = App.useApp()
   const navigate = useNavigate()
   const state = useLocation().state as LocationState
@@ -23,7 +25,7 @@ export function LoginPage() {
     setSubmitting(true)
     try {
       const loggedIn = await login(values.email, values.password)
-      message.success(`Welcome back, ${loggedIn.name}`)
+      message.success(t('login.welcome', { name: loggedIn.name }))
     } catch (error) {
       // 403 = right password but the email isn't verified yet → send them to the OTP page.
       if (axios.isAxiosError(error) && error.response?.status === 403) {
@@ -38,35 +40,35 @@ export function LoginPage() {
   }
 
   return (
-    <AuthCard title="Log in" subtitle="Welcome back to ClinicFlow">
+    <AuthCard title={t('login.title')} subtitle={t('login.subtitle')}>
       <Form<LoginForm>
         layout="vertical"
         onFinish={onFinish}
         requiredMark={false}
         initialValues={{ email: state?.email }}
       >
-        <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email', message: 'Enter a valid email' }]}>
-          <Input autoComplete="email" />
+        <Form.Item name="email" label={t('common.email')} rules={[{ required: true, type: 'email', message: t('common.validEmail') }]}>
+          <Input autoComplete="email" dir="ltr" />
         </Form.Item>
         <Form.Item
           name="password"
-          label="Password"
-          rules={[{ required: true, message: 'Enter your password' }]}
+          label={t('common.password')}
+          rules={[{ required: true, message: t('login.passwordRequired') }]}
           extra={
-            <div className="mt-1 text-right">
-              <Link to="/forgot-password">Forgot password?</Link>
+            <div className="mt-1 text-end">
+              <Link to="/forgot-password">{t('login.forgot')}</Link>
             </div>
           }
         >
           <Input.Password autoComplete="current-password" />
         </Form.Item>
         <Button type="primary" htmlType="submit" block loading={submitting}>
-          Log in
+          {t('login.title')}
         </Button>
       </Form>
 
-      <p className="mt-4 text-center text-sm text-navy/60">
-        No account? <Link to="/signup">Sign up</Link>
+      <p className="mt-4 text-center text-sm text-ink/60">
+        {t('login.noAccount')} <Link to="/signup">{t('nav.signup')}</Link>
       </p>
     </AuthCard>
   )

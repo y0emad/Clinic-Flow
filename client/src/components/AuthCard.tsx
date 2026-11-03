@@ -13,7 +13,7 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
         <Typography.Title level={3} className="!mb-2 text-center">
           {title}
         </Typography.Title>
-        {subtitle && <p className="mb-6 text-center text-sm text-navy/60">{subtitle}</p>}
+        {subtitle && <p className="mb-6 text-center text-sm text-ink/60">{subtitle}</p>}
         {!subtitle && <div className="mb-6" />}
         {children}
       </Card>

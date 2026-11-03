@@ -28,12 +28,12 @@ export function LogoMark({ size = 32 }: { size?: number }) {
   )
 }
 
-// Mark + name. `dark` = on the navy navbar (white "Clinic"), otherwise navy text.
+// Mark + name. `dark` = on the navy navbar (white "Clinic"), otherwise the page text color.
 export function Logo({ dark = false, size = 32 }: { dark?: boolean; size?: number }) {
   return (
     <span className="inline-flex items-center gap-2">
       <LogoMark size={size} />
-      <span className={`text-xl font-extrabold tracking-tight ${dark ? 'text-white' : 'text-navy'}`}>
+      <span className={`text-xl font-extrabold tracking-tight ${dark ? 'text-white' : 'text-ink'}`}>
         Clinic
         <span className="bg-linear-to-r from-sky to-teal bg-clip-text text-transparent">Flow</span>
       </span>

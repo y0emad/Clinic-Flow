@@ -1,14 +1,17 @@
 import { App, Button, Form, Input } from 'antd'
 import { useMutation } from '@tanstack/react-query'
 import { Link, useLocation, useNavigate } from 'react-router'
+import { useTranslation } from 'react-i18next'
 import { api, getErrorMessage } from '../../lib/api'
 import { useCountdown } from '../../lib/useCountdown'
 import { AuthCard } from '../../components/AuthCard'
+import { OtpInput } from '../../components/OtpInput'
 
 type VerifyForm = { email: string; otp: string }
 type LocationState = { email?: string; justSent?: boolean } | null
 
 export function VerifyEmailPage() {
+  const { t } = useTranslation()
   const { message } = App.useApp()
   const navigate = useNavigate()
   const state = useLocation().state as LocationState
@@ -19,7 +22,7 @@ export function VerifyEmailPage() {
   const verify = useMutation({
     mutationFn: (values: VerifyForm) => api.post('/auth/verify-otp', values),
     onSuccess: (_res, values) => {
-      message.success('Email verified, you can log in now')
+      message.success(t('verify.verified'))
       navigate('/login', { state: { email: values.email } })
     },
     onError: (error) => message.error(getErrorMessage(error)),
@@ -28,7 +31,7 @@ export function VerifyEmailPage() {
   const resend = useMutation({
     mutationFn: (email: string) => api.post('/auth/resend-otp', { email }),
     onSuccess: () => {
-      message.success('A new code was sent to your email')
+      message.success(t('verify.resent'))
       restart()
     },
     onError: (error) => message.error(getErrorMessage(error)),
@@ -40,7 +43,7 @@ export function VerifyEmailPage() {
   }
 
   return (
-    <AuthCard title="Verify your email" subtitle="Enter the 6-digit code we sent to your email. It expires in 10 minutes.">
+    <AuthCard title={t('verify.title')} subtitle={t('verify.subtitle')}>
       <Form<VerifyForm>
         form={form}
         layout="vertical"
@@ -48,22 +51,22 @@ export function VerifyEmailPage() {
         requiredMark={false}
         initialValues={{ email: state?.email }}
       >
-        <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email', message: 'Enter a valid email' }]}>
-          <Input autoComplete="email" />
+        <Form.Item name="email" label={t('common.email')} rules={[{ required: true, type: 'email', message: t('common.validEmail') }]}>
+          <Input autoComplete="email" dir="ltr" />
         </Form.Item>
-        <Form.Item name="otp" label="Code" rules={[{ required: true, len: 6, message: 'Enter the 6-digit code' }]}>
-          <Input.OTP length={6} formatter={(v) => v.replace(/\D/g, '')} />
+        <Form.Item name="otp" label={t('common.code')} rules={[{ required: true, len: 6, message: t('common.codeRequired') }]}>
+          <OtpInput />
         </Form.Item>
         <Button type="primary" htmlType="submit" block loading={verify.isPending}>
-          Verify
+          {t('verify.submit')}
         </Button>
       </Form>
 
-      <div className="mt-4 flex items-center justify-between text-sm text-navy/60">
+      <div className="mt-4 flex items-center justify-between text-sm text-ink/60">
         <Button type="link" className="!px-0" onClick={onResend} disabled={secondsLeft > 0} loading={resend.isPending}>
-          {secondsLeft > 0 ? `Resend code in ${secondsLeft}s` : 'Resend code'}
+          {secondsLeft > 0 ? t('common.resendIn', { seconds: secondsLeft }) : t('common.resendCode')}
         </Button>
-        <Link to="/login">Back to log in</Link>
+        <Link to="/login">{t('common.backToLogin')}</Link>
       </div>
     </AuthCard>
   )
