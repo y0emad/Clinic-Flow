@@ -135,19 +135,13 @@ Browser ──HTTPS──▶ Caddy (:443, Let's Encrypt) ──▶ clinicflow co
                                                           └──▶ Brevo API (emails)
 ```
 
-- **Image:** built from the `Dockerfile` and pushed to Docker Hub (`yousefemad/clinicflow`); the server only pulls and runs it.
+- **Continuous deployment:** every merge to `main` runs the tests, then GitHub Actions builds the image and pushes it to Docker Hub (`yousefemad/clinicflow`, tagged `latest` and with the commit sha). On the server, `deploy/update.sh` runs every 2 minutes from cron: when a newer image is out it restarts the app on it and waits for `/health`. The server pulls, so it needs no SSH access from GitHub.
 - **HTTPS:** Caddy gets and renews the Let's Encrypt certificate by itself and redirects http to https. The app container has no public port; only Caddy reaches it, on a private Docker network.
 - **Database:** Neon (managed PostgreSQL). Migrations run automatically when the container starts.
 - **Emails:** Brevo's HTTP API, since many hosts block SMTP ports.
 - **Config:** secrets live only in an env file on the server, never in the image or the repo. Behind Caddy the app runs with `HTTPS_ONLY=true` and `TRUST_PROXY=true` (see `.env.example`).
 
-Update the server after a new image is pushed:
-
-```bash
-docker pull yousefemad/clinicflow:latest
-docker rm -f clinicflow
-docker run -d --name clinicflow --restart unless-stopped --network clinicflow --env-file ~/clinicflow.env yousefemad/clinicflow:latest
-```
+To roll back, revert the bad commit on `main`: CI publishes the reverted code as the new `latest` and the server picks it up. Each image is also kept on Docker Hub under its commit sha.
 
 ## API
 
@@ -252,7 +246,7 @@ How it works:
 - Emails are mocked: nothing is sent, and the tests read the OTP from the mock.
 - Rate limits are skipped when `NODE_ENV=test`.
 - `src/app.ts` builds the Express app and `src/server.ts` only starts it, so Supertest can use the app without opening a port.
-- **CI:** GitHub Actions (`.github/workflows/ci.yml`) runs the typecheck and all tests against a Postgres service, lints and builds the frontend, then checks that the Docker image builds. On every push and pull request.
+- **CI/CD:** GitHub Actions (`.github/workflows/ci.yml`) runs the typecheck and all tests against a Postgres service, lints and builds the frontend, then builds the Docker image. On pull requests it stops there; on `main` it also publishes the image, which the server deploys by itself.
 
 ## Project structure
 
@@ -273,6 +267,7 @@ drizzle/                 # SQL migrations (incl. the custom exclusion constraint
 .github/workflows/      # CI: typecheck, tests, Docker build
 postman/                 # Postman collection
 client/                  # React frontend (see client/README.md)
+deploy/update.sh         # server-side auto-deploy (pulls new images from Docker Hub)
 ```
 
 ## Roadmap
