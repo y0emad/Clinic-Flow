@@ -15,9 +15,13 @@ export const inClinic = (date: string | Date | Dayjs) => dayjs(date).tz(CLINIC_T
 // Today's date in the clinic, as a plain date ("2026-11-07").
 export const clinicTodayString = () => dayjs().tz(CLINIC_TZ).format('YYYY-MM-DD')
 
-export const formatDate = (iso: string) => inClinic(iso).format('ddd, D MMM YYYY')
+// Day names follow the current language (dayjs locale is set in i18n/index.ts); Arabic uses its own comma.
+const comma = () => (dayjs.locale() === 'ar' ? '،' : ',')
+export const formatDay = (date: Dayjs) => date.format(`ddd${comma()} D MMM`)
+export const formatLongDay = (date: Dayjs) => date.format(`dddd${comma()} D MMMM YYYY`)
+export const formatDate = (iso: string) => inClinic(iso).format(`ddd${comma()} D MMM YYYY`)
 export const formatTime = (iso: string) => inClinic(iso).format('h:mm A')
-export const formatDateTime = (iso: string) => inClinic(iso).format('ddd, D MMM YYYY · h:mm A')
+export const formatDateTime = (iso: string) => inClinic(iso).format(`ddd${comma()} D MMM YYYY · h:mm A`)
 
 // A date / time picked in the browser → the same wall-clock time in the clinic → ISO (UTC) for the API.
 export const clinicWallTimeToIso = (value: Dayjs) =>

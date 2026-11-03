@@ -2,7 +2,9 @@
 
 React frontend for the ClinicFlow API.
 
-**Stack:** Vite, React 19, TypeScript, Ant Design 6, Tailwind CSS 4, React Router, TanStack Query, axios, dayjs.
+**Stack:** Vite, React 19, TypeScript, Ant Design 6, Tailwind CSS 4, React Router, TanStack Query, react-i18next, axios, dayjs.
+
+**English / Arabic** (full right-to-left layout) and **light / dark** mode, switchable from the navbar and remembered per browser.
 
 ## Run
 
@@ -29,7 +31,9 @@ In development Vite forwards `/api/*` to the API, so there is no CORS setup. To 
 src/
 ├── main.tsx            # providers: antd theme, React Query, auth
 ├── App.tsx             # routes (each page is lazy-loaded)
-├── theme.ts            # brand colors for antd (same colors in index.css for Tailwind)
+├── theme.ts            # brand colors + light/dark theme for antd (same colors in index.css for Tailwind)
+├── i18n/               # en / ar texts, Arabic versions of API error messages
+├── prefs/              # language + light/dark (PrefsProvider)
 ├── auth/               # AuthProvider, useAuth, RequireAuth (role-based routes)
 ├── lib/                # axios client, dates in clinic time (Africa/Cairo), shared hooks
 ├── components/         # shared UI pieces

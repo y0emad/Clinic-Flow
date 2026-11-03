@@ -1,4 +1,6 @@
 import axios from 'axios'
+import i18n, { currentLang } from '../i18n'
+import { apiErrorsAr } from '../i18n/apiErrors.ar'
 
 export const TOKEN_KEY = 'clinicflow_token'
 
@@ -26,11 +28,13 @@ api.interceptors.response.use(
   },
 )
 
-// Every API error looks like { success: false, msg }.
+// Every API error looks like { success: false, msg }. The API speaks English; in Arabic the known
+// messages are translated (apiErrors.ar.ts) and anything else is shown as it came.
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    if (error.response?.data?.msg) return error.response.data.msg
-    if (!error.response) return "Can't reach the server, check your connection"
+    const msg: string | undefined = error.response?.data?.msg
+    if (msg) return (currentLang() === 'ar' && apiErrorsAr[msg]) || msg
+    if (!error.response) return i18n.t('errors.cantReach')
   }
-  return 'Something went wrong, please try again'
+  return i18n.t('errors.generic')
 }

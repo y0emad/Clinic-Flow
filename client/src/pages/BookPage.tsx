@@ -4,16 +4,21 @@ import { ArrowLeftOutlined, ClockCircleOutlined } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs, { type Dayjs } from 'dayjs'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
+import { Trans, useTranslation } from 'react-i18next'
 import { api, getErrorMessage } from '../lib/api'
 import { useAuth } from '../auth/useAuth'
-import { BOOKING_DAYS_AHEAD, clinicTodayString, formatDateTime } from '../lib/dates'
-import type { Service, Slot } from '../types'
+import { BOOKING_DAYS_AHEAD, clinicTodayString, formatDateTime, formatDay, hasStarted, inClinic } from '../lib/dates'
+import { MAX_UPCOMING_BOOKINGS } from '../lib/appointments'
+import type { Appointment, Service, Slot } from '../types'
 
 type Availability = { closed: boolean; slots: Slot[] }
+
+const myAppointmentsLink = { link: <Link to="/my-appointments" /> }
 
 export function BookPage() {
   const { serviceId } = useParams() as { serviceId: string }
   const { user } = useAuth()
+  const { t } = useTranslation()
   const { message, modal } = App.useApp()
   const navigate = useNavigate()
   const location = useLocation()
@@ -31,18 +36,33 @@ export function BookPage() {
     queryFn: async () => (await api.get<{ service: Service }>(`/services/${serviceId}`)).data.service,
   })
 
+  // The patient's upcoming bookings: the API allows one per day and MAX_UPCOMING_BOOKINGS in total,
+  // so those days are disabled here instead of failing after "Book".
+  const isPatient = user?.role === 'PATIENT'
+  const myUpcoming = useQuery({
+    queryKey: ['appointments', 'me', 'upcoming'],
+    queryFn: async () =>
+      (await api.get<{ appointments: Appointment[] }>('/appointments/me', { params: { status: 'BOOKED', limit: 50 } }))
+        .data.appointments,
+    select: (list) => list.filter((a) => !hasStarted(a.startAt)),
+    enabled: isPatient,
+  })
+  const bookedDays = new Set((myUpcoming.data ?? []).map((a) => inClinic(a.startAt).format('YYYY-MM-DD')))
+  const atLimit = (myUpcoming.data?.length ?? 0) >= MAX_UPCOMING_BOOKINGS
+  const dayAlreadyBooked = bookedDays.has(dateString)
+
   const availability = useQuery({
     queryKey: ['availability', serviceId, dateString],
     queryFn: async () =>
       (await api.get<Availability>(`/availability/${serviceId}`, { params: { date: dateString } })).data,
-    enabled: service.isSuccess,
+    enabled: service.isSuccess && !dayAlreadyBooked,
   })
 
   const book = useMutation({
     mutationFn: () =>
       api.post('/appointments', { serviceId, startAt: slot!.startAt, notes: notes.trim() || undefined }),
     onSuccess: () => {
-      message.success('Booked! We sent you a confirmation email')
+      message.success(t('book.booked'))
       queryClient.invalidateQueries({ queryKey: ['availability'] })
       queryClient.invalidateQueries({ queryKey: ['appointments'] })
       navigate('/my-appointments')
@@ -61,7 +81,9 @@ export function BookPage() {
 
   if (service.isPending) return <Skeleton active />
   if (service.error) {
-    return <Alert type="error" showIcon title={getErrorMessage(service.error)} action={<Link to="/">Back</Link>} />
+    return (
+      <Alert type="error" showIcon title={getErrorMessage(service.error)} action={<Link to="/">{t('common.back')}</Link>} />
+    )
   }
 
   const s = service.data
@@ -70,41 +92,71 @@ export function BookPage() {
   return (
     <>
       <Link to="/" className="mb-4 inline-flex items-center gap-2 text-sm">
-        <ArrowLeftOutlined /> All services
+        <ArrowLeftOutlined className="rtl:rotate-180" /> {t('book.allServices')}
       </Link>
 
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="mb-1 text-2xl font-bold">{s.name}</h1>
-          <p className="text-navy/60">{s.description}</p>
+          <p className="text-ink/60">{s.description}</p>
         </div>
         <div className="flex items-center gap-3">
-          <Tag icon={<ClockCircleOutlined className="text-teal" />}>{s.durationMinutes} min</Tag>
-          <span className="text-lg font-semibold">{s.price} EGP</span>
+          <Tag icon={<ClockCircleOutlined className="text-teal" />}>{t('common.minutes', { count: s.durationMinutes })}</Tag>
+          <span className="text-lg font-semibold">{t('common.price', { price: s.price })}</span>
         </div>
       </div>
 
+      {atLimit && (
+        <Alert
+          type="warning"
+          showIcon
+          className="mb-6"
+          title={t('book.atLimitTitle', { count: MAX_UPCOMING_BOOKINGS })}
+          description={<Trans i18nKey="book.atLimitText" components={myAppointmentsLink} />}
+        />
+      )}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
-        <Card title="1. Pick a day" size="small">
+        <Card title={t('book.pickDay')} size="small">
           <Calendar
             fullscreen={false}
             value={date}
             validRange={[today, lastDay]}
-            disabledDate={(d) => d.isBefore(today, 'day') || d.isAfter(lastDay, 'day')}
+            disabledDate={(d) =>
+              d.isBefore(today, 'day') || d.isAfter(lastDay, 'day') || bookedDays.has(d.format('YYYY-MM-DD'))
+            }
             onSelect={(d, { source }) => source === 'date' && pickDate(d)}
+            // Booked days are disabled like past days, so mark them to show why.
+            fullCellRender={(d, info) =>
+              info.type === 'date' && bookedDays.has(d.format('YYYY-MM-DD')) ? (
+                <div className="ant-picker-cell-inner !rounded-full !bg-teal/25 !text-ink dark:!bg-teal/45" title={t('book.bookedLegend')}>
+                  {d.date()}
+                </div>
+              ) : (
+                info.originNode
+              )
+            }
           />
+          {bookedDays.size > 0 && (
+            <p className="mt-2 flex items-center gap-2 text-xs text-ink/60">
+              <span className="inline-block size-3 rounded-full bg-teal/25 dark:bg-teal/45" /> {t('book.bookedLegend')}
+            </p>
+          )}
         </Card>
 
-        <Card title={`2. Pick a time · ${date.format('ddd, D MMM')}`} size="small">
-          {availability.isPending && (
+        <Card title={t('book.pickTime', { date: formatDay(date) })} size="small">
+          {dayAlreadyBooked && (
+            <Empty description={<Trans i18nKey="book.dayBooked" components={myAppointmentsLink} />} />
+          )}
+          {!dayAlreadyBooked && availability.isPending && (
             <div className="flex justify-center py-10">
               <Spin />
             </div>
           )}
           {availability.error && <Alert type="error" showIcon title={getErrorMessage(availability.error)} />}
-          {availability.data?.closed && <Empty description="The clinic is closed on this day" />}
+          {availability.data?.closed && <Empty description={t('book.closedDay')} />}
           {availability.data && !availability.data.closed && availability.data.slots.length === 0 && (
-            <Empty description="No free times left on this day, try another day" />
+            <Empty description={t('book.noSlots')} />
           )}
 
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-6">
@@ -119,44 +171,44 @@ export function BookPage() {
             ))}
           </div>
 
-          <div className="mt-6 border-t border-navy/5 pt-4">
-            <p className="mb-2 text-sm font-medium">Notes for the doctor (optional)</p>
+          <div className="mt-6 border-t border-ink/5 pt-4">
+            <p className="mb-2 text-sm font-medium">{t('book.notes')}</p>
             <Input.TextArea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               maxLength={500}
               showCount
               autoSize={{ minRows: 2, maxRows: 4 }}
-              placeholder="Anything the doctor should know before your visit"
+              placeholder={t('book.notesPlaceholder')}
             />
           </div>
 
-          <div className="mt-4 flex justify-end">
+          <div className="mt-9 flex justify-end">
             {user?.role === 'DOCTOR' ? (
-              <Alert type="info" showIcon title="Only patients can book appointments" />
+              <Alert type="info" showIcon title={t('book.onlyPatients')} />
             ) : user ? (
               <Button
                 type="primary"
                 size="large"
-                disabled={!slot}
+                disabled={!slot || atLimit || dayAlreadyBooked}
                 onClick={() =>
                   modal.confirm({
-                    title: 'Confirm your booking',
+                    title: t('book.confirmTitle'),
                     content: (
                       <p>
-                        <b>{s.name}</b> on <b>{formatDateTime(slot!.startAt)}</b> · {s.price} EGP
+                        <b>{s.name}</b> · <b>{formatDateTime(slot!.startAt)}</b> · {t('common.price', { price: s.price })}
                       </p>
                     ),
-                    okText: 'Book',
+                    okText: t('book.confirmOk'),
                     onOk: () => book.mutateAsync().catch(() => undefined),
                   })
                 }
               >
-                Book appointment
+                {t('book.submit')}
               </Button>
             ) : (
               <Button type="primary" size="large" onClick={() => navigate('/login', { state: { from: location.pathname } })}>
-                Log in to book
+                {t('book.loginToBook')}
               </Button>
             )}
           </div>

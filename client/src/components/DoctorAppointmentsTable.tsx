@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Alert, Button, Popconfirm, Table, Tooltip } from 'antd'
 import { CheckOutlined, CloseOutlined, UserDeleteOutlined } from '@ant-design/icons'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { api, getErrorMessage } from '../lib/api'
 import { PAGE_SIZE, useCancelAppointment, useUpdateAppointmentStatus } from '../lib/appointments'
 import { formatDate, formatTime, hasStarted } from '../lib/dates'
@@ -16,6 +17,7 @@ type Props = {
 
 // The doctor's appointment list with its actions. Used by the dashboard (today) and the appointments page.
 export function DoctorAppointmentsTable({ date, status, showDate = true }: Props) {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const cancel = useCancelAppointment()
   const updateStatus = useUpdateAppointmentStatus()
@@ -47,7 +49,7 @@ export function DoctorAppointmentsTable({ date, status, showDate = true }: Props
         loading={isFetching}
         dataSource={data?.appointments}
         scroll={{ x: 760 }}
-        locale={{ emptyText: 'No appointments' }}
+        locale={{ emptyText: t('doctorTable.empty') }}
         pagination={{
           current: page,
           pageSize: PAGE_SIZE,
@@ -58,67 +60,74 @@ export function DoctorAppointmentsTable({ date, status, showDate = true }: Props
         }}
         expandable={{
           rowExpandable: (a) => !!a.notes,
-          expandedRowRender: (a) => <p className="text-navy/70">📝 {a.notes}</p>,
+          expandedRowRender: (a) => <p className="text-ink/70">📝 {a.notes}</p>,
         }}
         columns={[
-          ...(showDate ? [{ title: 'Date', key: 'date', render: (_: unknown, a: Appointment) => formatDate(a.startAt) }] : []),
-          { title: 'Time', key: 'time', render: (_, a) => formatTime(a.startAt) },
+          ...(showDate
+            ? [{ title: t('table.date'), key: 'date', render: (_: unknown, a: Appointment) => formatDate(a.startAt) }]
+            : []),
+          { title: t('table.time'), key: 'time', render: (_, a) => formatTime(a.startAt) },
           {
-            title: 'Patient',
+            title: t('table.patient'),
             key: 'patient',
             render: (_, a) => (
               <div>
                 <div className="font-medium">{a.patient?.name}</div>
-                <div className="text-xs text-navy/50">{a.patient?.phone ?? a.patient?.email}</div>
+                <div className="text-xs text-ink/50" dir="ltr">
+                  {a.patient?.phone ?? a.patient?.email}
+                </div>
               </div>
             ),
           },
-          { title: 'Service', key: 'service', render: (_, a) => a.service.name },
-          { title: 'Price', dataIndex: 'price', render: (price: number) => `${price} EGP` },
-          { title: 'Status', dataIndex: 'status', render: (s: AppointmentStatus) => <StatusTag status={s} /> },
+          { title: t('table.service'), key: 'service', render: (_, a) => a.service.name },
+          { title: t('table.price'), dataIndex: 'price', render: (price: number) => t('common.price', { price }) },
+          { title: t('table.status'), dataIndex: 'status', render: (s: AppointmentStatus) => <StatusTag status={s} /> },
           {
             title: '',
             key: 'actions',
-            align: 'right',
             render: (_, a) => {
               if (a.status !== 'BOOKED') return null
 
               // Before it starts the doctor can cancel; after it starts they record what happened.
               if (!hasStarted(a.startAt)) {
                 return (
-                  <Popconfirm
-                    title="Cancel this appointment?"
-                    description="The patient gets an email."
-                    okText="Yes, cancel"
-                    cancelText="Keep it"
-                    okButtonProps={{ danger: true }}
-                    onConfirm={() => cancel.mutateAsync(a.id).catch(() => undefined)}
-                  >
-                    <Button size="small" danger icon={<CloseOutlined />}>
-                      Cancel
-                    </Button>
-                  </Popconfirm>
+                  <div className="flex justify-end">
+                    <Popconfirm
+                      title={t('myAppointments.cancelConfirm')}
+                      description={t('doctorTable.cancelDescription')}
+                      okText={t('common.yesCancel')}
+                      cancelText={t('common.keepIt')}
+                      okButtonProps={{ danger: true }}
+                      onConfirm={() => cancel.mutateAsync(a.id).catch(() => undefined)}
+                    >
+                      <Button size="small" className="!h-7 !px-3" danger icon={<CloseOutlined />}>
+                        {t('common.cancel')}
+                      </Button>
+                    </Popconfirm>
+                  </div>
                 )
               }
               return (
-                <div className="flex justify-end gap-2">
-                  <Tooltip title="Patient came">
+                <div className="flex justify-end gap-3">
+                  <Tooltip title={t('doctorTable.doneTip')}>
                     <Button
                       size="small"
+                      className="!h-7 !px-3"
                       type="primary"
                       icon={<CheckOutlined />}
                       onClick={() => updateStatus.mutate({ id: a.id, status: 'COMPLETED' })}
                     >
-                      Done
+                      {t('doctorTable.done')}
                     </Button>
                   </Tooltip>
-                  <Tooltip title="Patient didn't come">
+                  <Tooltip title={t('doctorTable.noShowTip')}>
                     <Button
                       size="small"
+                      className="!h-7 !px-3"
                       icon={<UserDeleteOutlined />}
                       onClick={() => updateStatus.mutate({ id: a.id, status: 'NO_SHOW' })}
                     >
-                      No-show
+                      {t('doctorTable.noShow')}
                     </Button>
                   </Tooltip>
                 </div>
