@@ -109,7 +109,7 @@ docker compose exec api node dist/db/seed.js    # create the doctor account (fir
 - The `Dockerfile` is multi-stage: one stage builds the React app, one compiles the API, and the final image has only the compiled JS, the built website and production dependencies. It runs as the non-root `node` user.
 - Express serves the API under `/api` and the website on every other path (so `/dashboard` or `/book/...` work on refresh).
 - On start the container applies any pending migrations, then starts the server.
-- The API waits until PostgreSQL is healthy, and has its own healthcheck on `GET /health`.
+- The API waits until PostgreSQL is healthy, and has its own healthcheck on `GET /health`, which does not touch the database so Neon can suspend it when the site is idle.
 
 ### Scripts
 
@@ -135,7 +135,7 @@ Browser ──HTTPS──▶ Caddy (:443, Let's Encrypt) ──▶ clinicflow co
                                                           └──▶ Brevo API (emails)
 ```
 
-- **Continuous deployment:** every merge to `main` runs the tests, then GitHub Actions builds the image and pushes it to Docker Hub (`yousefemad/clinicflow`, tagged `latest` and with the commit sha). On the server, `deploy/update.sh` runs every 2 minutes from cron: when a newer image is out it restarts the app on it and waits for `/health`. The server pulls, so it needs no SSH access from GitHub.
+- **Continuous deployment:** every merge to `main` runs the tests, then GitHub Actions builds the image and pushes it to Docker Hub (`yousefemad/clinicflow`, tagged `latest` and with the commit sha). On the server, `deploy/update.sh` runs every 2 minutes from cron: when a newer image is out it restarts the app on it and waits for `/health/db`. The server pulls, so it needs no SSH access from GitHub.
 - **HTTPS:** Caddy gets and renews the Let's Encrypt certificate by itself and redirects http to https. The app container has no public port; only Caddy reaches it, on a private Docker network.
 - **Database:** Neon (managed PostgreSQL). Migrations run automatically when the container starts.
 - **Emails:** Brevo's HTTP API, since many hosts block SMTP ports.
@@ -147,7 +147,7 @@ To roll back, revert the bad commit on `main`: CI publishes the reverted code as
 
 A ready Postman collection is in [`postman/ClinicFlow.postman_collection.json`](postman/ClinicFlow.postman_collection.json). It saves tokens and ids automatically between requests.
 
-All paths are under **`/api`**, e.g. `POST /api/auth/login`. `GET /health` (outside `/api`) checks the app and the database.
+All paths are under **`/api`**, e.g. `POST /api/auth/login`. `GET /health` (outside `/api`) checks the app, and `GET /health/db` also checks the database.
 
 Auth: `Authorization: Bearer <token>`. 🌐 public · 🧑 patient · 🩺 doctor
 

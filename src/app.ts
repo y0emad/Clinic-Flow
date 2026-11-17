@@ -30,10 +30,13 @@ app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Used by Docker / the hosting platform to check the API and the database are up.
-app.get("/health", async (_req, res) => {
-  await db.execute(sql`SELECT 1`);
+app.get("/health", (_req, res) => {
   res.json({ success: true, status: "ok" });
+});
+
+app.get("/health/db", async (_req, res) => {
+  await db.execute(sql`SELECT 1`);
+  res.json({ success: true, status: "ok", database: "ok" });
 });
 
 // All API routes live under /api, so they never clash with the frontend's pages.

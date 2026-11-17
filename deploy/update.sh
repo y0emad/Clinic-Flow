@@ -29,7 +29,7 @@ docker run -d --name "$NAME" --restart unless-stopped --network "$NETWORK" --env
 
 # Wait for the health check route (migrations run on start).
 for _ in $(seq 1 30); do
-  if docker exec "$NAME" node -e "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" 2>/dev/null; then
+  if docker exec "$NAME" node -e "fetch('http://localhost:3000/health/db').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" 2>/dev/null; then
     echo "$(date -Is) deployed, healthy"
     docker image prune -f >/dev/null
     exit 0
